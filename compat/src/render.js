@@ -21,20 +21,25 @@ export const REACT_ELEMENT_TYPE =
 export function render(vnode, parent, callback) {
 	// React destroys any existing DOM nodes, see #1727
 	// ...but only on the first render, see #1828
-	if (parent._children == null) {
+	let root = parent._root;
+	if (parent._root == null) {
 		while (parent.firstChild) {
 			parent.removeChild(parent.firstChild);
 		}
+		root = parent._root = createRoot(parent);
 	}
 
-	createRoot(parent).render(vnode, parent);
+	root.render(vnode);
 	if (typeof callback == 'function') callback();
 
 	return vnode ? vnode._component : null;
 }
 
 export function hydrate(vnode, parent, callback) {
-	createRoot(parent).hydrate(vnode);
+	const root = !parent._root
+		? (parent._root = createRoot(parent))
+		: parent._root;
+	root.hydrate(vnode);
 	if (typeof callback == 'function') callback();
 
 	return vnode ? vnode._component : null;

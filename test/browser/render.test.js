@@ -71,6 +71,7 @@ describe('render()', () => {
 		scratch = document.createElement('div');
 		(document.body || document.documentElement).appendChild(scratch);
 
+		({ render } = createRoot(scratch));
 		render(<span />);
 		expect(scratch.childNodes).to.have.length(1);
 		expect(scratch.childNodes[0].nodeName).to.equal('SPAN');
@@ -88,6 +89,7 @@ describe('render()', () => {
 		scratch.parentNode.removeChild(scratch);
 		scratch = document.createElement('div');
 		(document.body || document.documentElement).appendChild(scratch);
+		({ render } = createRoot(scratch));
 
 		render(<x-bar />);
 		expect(scratch.childNodes).to.have.length(1);
@@ -317,8 +319,7 @@ describe('render()', () => {
 					<div>
 						<input value={val} />
 						<table border={val} />
-					</div>,
-					scratch
+					</div>
 				);
 			}
 
@@ -441,8 +442,7 @@ describe('render()', () => {
 			render(
 				<div>
 					a<strong>b</strong>
-				</div>,
-				scratch
+				</div>
 			);
 
 			expect(scratch, 'unset').to.have.property(
@@ -602,8 +602,7 @@ describe('render()', () => {
 						<option>50</option>
 						<option>100</option>
 					</datalist>
-				</div>,
-				scratch
+				</div>
 			);
 
 			let html = scratch.firstElementChild.firstElementChild.outerHTML;
