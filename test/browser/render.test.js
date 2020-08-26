@@ -11,8 +11,9 @@ import {
 	spyOnElementAttributes
 } from '../_util/helpers';
 import { clearLog, getLog, logCall } from '../_util/logCall';
-
-/** @jsx createElement */
+import { expect } from '@open-wc/testing';
+import sinon from 'sinon';
+import '../polyfills';
 
 function getAttributes(node) {
 	let attrs = {};
