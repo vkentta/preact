@@ -52,7 +52,6 @@ export function initDebug() {
 	let oldCatchError = options._catchError;
 	let oldRoot = options._root;
 	let oldHook = options._hook;
-	let oldArgsChanged = options._argsChanged;
 	const warnedComponents = !isWeakMapSupported
 		? null
 		: {
@@ -254,27 +253,21 @@ export function initDebug() {
 		if (oldBeforeDiff) oldBeforeDiff(vnode);
 	};
 
-	let lastHookType = -1;
-	options._hook = (comp, index, type) => {
-		lastHookType = type;
+	options._hook = (comp, index, type, oldArgs, newArgs) => {
 		if (!comp || !hooksAllowed) {
 			throw new Error('Hook can only be invoked from render methods.');
 		}
 
-		if (oldHook) oldHook(comp, index, type);
-	};
-
-	options._argsChanged = (oldArgs, newArgs, currentComponent) => {
 		if (oldArgs && newArgs && oldArgs.length !== newArgs.length) {
-			const name = getArgsHookName(lastHookType);
+			const name = getArgsHookName(type);
 			console.error(
 				`Error: The dependency Array (last argument) passed to ${name} ` +
 					`changed size between renders. The order of the items and the size ` +
 					`of this Array must remain the same.` +
-					`\n\n${getOwnerStack(currentComponent._vnode)}`
+					`\n\n${getOwnerStack(comp._vnode)}`
 			);
 		}
-		if (oldArgsChanged) oldArgsChanged(oldArgs, newArgs, currentComponent);
+		if (oldHook) oldHook(comp, index, type, oldArgs, newArgs);
 	};
 
 	// Ideally we'd want to print a warning once per component, but we

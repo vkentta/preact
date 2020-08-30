@@ -79,30 +79,41 @@ options.unmount = vnode => {
  * Get a hook's state from the currentComponent
  * @param {number} index The index of the hook to get
  * @param {number} type The index of the hook to get
+ * @param {null | any[]} nextArgs Next dependency array if any
  * @returns {import('./internal').HookState}
  */
-function getHookState(index, type) {
+function getHookState(index, type, nextArgs) {
+	let state;
+
+	if (currentComponent) {
+		// Largely inspired by:
+		// * https://github.com/michael-klein/funcy.js/blob/f6be73468e6ec46b0ff5aa3cc4c9baf72a29025a/src/hooks/core_hooks.mjs
+		// * https://github.com/michael-klein/funcy.js/blob/650beaa58c43c33a74820a3c98b3c7079cf2e333/src/renderer.mjs
+		// Other implementations to look at:
+		// * https://codesandbox.io/s/mnox05qp8
+		const hooks =
+			currentComponent.__hooks ||
+			(currentComponent.__hooks = {
+				_list: [],
+				_pendingEffects: []
+			});
+
+		if (index >= hooks._list.length) {
+			hooks._list.push({});
+		}
+		state = hooks._list[index];
+	}
 	if (options._hook) {
-		options._hook(currentComponent, index, currentHook || type);
+		options._hook(
+			currentComponent,
+			index,
+			currentHook || type,
+			state && state._args,
+			nextArgs
+		);
 	}
 	currentHook = 0;
-
-	// Largely inspired by:
-	// * https://github.com/michael-klein/funcy.js/blob/f6be73468e6ec46b0ff5aa3cc4c9baf72a29025a/src/hooks/core_hooks.mjs
-	// * https://github.com/michael-klein/funcy.js/blob/650beaa58c43c33a74820a3c98b3c7079cf2e333/src/renderer.mjs
-	// Other implementations to look at:
-	// * https://codesandbox.io/s/mnox05qp8
-	const hooks =
-		currentComponent.__hooks ||
-		(currentComponent.__hooks = {
-			_list: [],
-			_pendingEffects: []
-		});
-
-	if (index >= hooks._list.length) {
-		hooks._list.push({});
-	}
-	return hooks._list[index];
+	return state;
 }
 
 /**
@@ -121,7 +132,7 @@ export function useState(initialState) {
  */
 export function useReducer(reducer, initialState, init) {
 	/** @type {import('./internal').ReducerHookState} */
-	const hookState = getHookState(currentIndex++, 2);
+	const hookState = getHookState(currentIndex++, 2, null);
 	hookState._reducer = reducer;
 	if (!hookState._component) {
 		hookState._component = currentComponent;
@@ -148,11 +159,8 @@ export function useReducer(reducer, initialState, init) {
  */
 export function useEffect(callback, args) {
 	/** @type {import('./internal').EffectHookState} */
-	const state = getHookState(currentIndex++, 3);
-	if (
-		!options._skipEffects &&
-		argsChanged(state._args, args, currentComponent)
-	) {
+	const state = getHookState(currentIndex++, 3, args);
+	if (!options._skipEffects && argsChanged(state._args, args)) {
 		state._value = callback;
 		state._args = args;
 
@@ -166,11 +174,8 @@ export function useEffect(callback, args) {
  */
 export function useLayoutEffect(callback, args) {
 	/** @type {import('./internal').EffectHookState} */
-	const state = getHookState(currentIndex++, 4);
-	if (
-		!options._skipEffects &&
-		argsChanged(state._args, args, currentComponent)
-	) {
+	const state = getHookState(currentIndex++, 4, args);
+	if (!options._skipEffects && argsChanged(state._args, args)) {
 		state._value = callback;
 		state._args = args;
 
@@ -205,8 +210,8 @@ export function useImperativeHandle(ref, createHandle, args) {
  */
 export function useMemo(factory, args) {
 	/** @type {import('./internal').MemoHookState} */
-	const state = getHookState(currentIndex++, 7);
-	if (argsChanged(state._args, args, currentComponent)) {
+	const state = getHookState(currentIndex++, 7, args);
+	if (argsChanged(state._args, args)) {
 		state._args = args;
 		state._factory = factory;
 		return (state._value = factory());
@@ -232,7 +237,7 @@ export function useContext(context) {
 	// We could skip this call here, but than we'd not call
 	// `options._hook`. We need to do that in order to make
 	// the devtools aware of this hook.
-	const state = getHookState(currentIndex++, 9);
+	const state = getHookState(currentIndex++, 9, null);
 	// The devtools needs access to the context object to
 	// be able to pull of the default value when no provider
 	// is present in the tree.
@@ -257,7 +262,7 @@ export function useDebugValue(value, formatter) {
 }
 
 export function useErrorBoundary(cb) {
-	const state = getHookState(currentIndex++, 10);
+	const state = getHookState(currentIndex++, 10, null);
 	const errState = useState();
 	state._value = cb;
 	if (!currentComponent.componentDidCatch) {
@@ -352,12 +357,8 @@ function invokeEffect(hook) {
 /**
  * @param {any[]} oldArgs
  * @param {any[]} newArgs
- * @param {import('./internal').Component} currentComponent
  */
-function argsChanged(oldArgs, newArgs, currentComponent) {
-	if (options._argsChanged) {
-		options._argsChanged(oldArgs, newArgs, currentComponent);
-	}
+function argsChanged(oldArgs, newArgs) {
 	return (
 		!oldArgs ||
 		oldArgs.length !== newArgs.length ||
